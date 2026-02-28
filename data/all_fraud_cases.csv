@@ -1,2 +1,0 @@
-complaint_id,complaint_text,complaint_date,extracted_amount,victim_account,victim_phone,transaction_date,fraud_account,fraud_bank_owner_id,fraud_bank_owner_fio,fraud_bank_owner_phone,has_calls,has_market_activity
-b2857395394,У меня пропали с карты 15000р.,2020-05-21 12:34:45,15000,40101810045250010041,79291234567,2020-05-21 12:07:35,40101810045250011152,,,,0.0,0.0
