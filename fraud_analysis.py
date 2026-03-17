@@ -1,182 +1,163 @@
+import sqlite3
 import pandas as pd
-import numpy as np
-import os
 import re
-from datetime import datetime
 
-# --- Модуль 1: Загрузка данных ---
+DB_PATH = 'data/ecosystem_data.db'
 DATA_PATH = 'data/'
+COMPLAINTS_FILE = 'data/bank_complaints.tsv'
 
-bank_clients = pd.read_csv(DATA_PATH + 'bank_clients.tsv', sep='\t')
-bank_complaints = pd.read_csv(DATA_PATH + 'bank_complaints.tsv', sep='\t')
-bank_transactions = pd.read_csv(DATA_PATH + 'bank_transactions.tsv', sep='\t')
-ecosystem_mapping = pd.read_csv(DATA_PATH + 'ecosystem_mapping.tsv', sep='\t')
-market_delivery = pd.read_csv(DATA_PATH + 'market_place_delivery.tsv', sep='\t')
-mobile_build = pd.read_csv(DATA_PATH + 'mobile_build.tsv', sep='\t')
-mobile_clients = pd.read_csv(DATA_PATH + 'mobile_clients.tsv', sep='\t')
+conn = sqlite3.connect(DB_PATH)
 
 
-# --- Модуль 2: Поиск мошенников по жалобе ---
 def extract_amount_from_complaint(text):
     patterns = [
-        r'(\d+)[\s]?р',  # 15000р
-        r'(\d+)[\s]?руб',  # 15000руб
-        r'(\d+)[\s]?рублей',  # 15000 рублей
-        r'(\d+)[\s]?₽',  # 15000₽
-        r'(\d+)[\s]?[\.,]?[\s]?р',  # 15000 р. или 15000,р
+        r'(\d+)[\s]?р',
+        r'(\d+)[\s]?руб',
+        r'(\d+)[\s]?рублей',
+        r'(\d+)[\s]?₽',
+        r'(\d+)[\s]?[\.,]?[\s]?р',
     ]
     for pattern in patterns:
-        match = re.search(pattern, text.lower())
+        match = re.search(pattern, str(text).lower())
         if match:
             return int(match.group(1))
 
-    if 'пропали' in text.lower():
-        words = text.split()
+    if 'пропали' in str(text).lower():
+        words = str(text).split()
         for i, word in enumerate(words):
             if word.lower() == 'пропали' and i + 1 < len(words):
-                next_word = words[i + 1]
-                numbers = re.findall(r'\d+', next_word)
+                numbers = re.findall(r'\d+', words[i + 1])
                 if numbers:
                     return int(numbers[0])
     return None
 
 
-def find_fraud_by_complaint(complaint_row, bank_clients_df, bank_transactions_df):
-    victim_id = complaint_row['uerId']
-    complaint_text = complaint_row['text']
-    complaint_date = complaint_row['event_date']
-
+def find_fraud_by_complaint(cursor, victim_id, complaint_text, complaint_date):
     amount = extract_amount_from_complaint(complaint_text)
-    if not amount: return None
+    if not amount:
+        return None
 
-    victim_data = bank_clients_df[bank_clients_df['userId'] == victim_id]
-    if victim_data.empty: return None
+    query = """
+        SELECT 
+            v.account as victim_account,
+            v.phone as victim_phone,
+            t.account_in as fraud_account,
+            t.event_date as transaction_date,
+            f.userId as fraud_bank_id,
+            f.fio as fraud_fio,
+            f.phone as fraud_phone
+        FROM bank_clients v
+        JOIN bank_transactions t ON t.account_out = v.account
+        LEFT JOIN bank_clients f ON f.account = t.account_in
+        WHERE v.userId = ? AND t.value = ?
+        LIMIT 1
+    """
+    cursor.execute(query, (victim_id, amount))
+    row = cursor.fetchone()
 
-    victim_account = victim_data.iloc[0]['accout']
-    victim_phone = victim_data.iloc[0]['phone']
-
-    fraud_transaction = bank_transactions_df[
-        (bank_transactions_df['account_out'] == victim_account) &
-        (bank_transactions_df['value'] == amount)
-        ]
-    if fraud_transaction.empty: return None
-
-    transaction = fraud_transaction.iloc[0]
-    fraud_account = transaction['account_in']
-    transaction_date = transaction['event_date']
-
-    fraud_bank_owner = bank_clients_df[bank_clients_df['accout'] == fraud_account]
+    if not row:
+        return None
 
     return {
         'complaint_id': victim_id,
         'complaint_text': complaint_text,
         'complaint_date': complaint_date,
         'extracted_amount': amount,
-        'victim_account': victim_account,
-        'victim_phone': victim_phone,
-        'transaction_date': transaction_date,
-        'fraud_account': fraud_account,
-        'fraud_bank_owner_id': fraud_bank_owner.iloc[0]['userId'] if not fraud_bank_owner.empty else None,
-        'fraud_bank_owner_fio': fraud_bank_owner.iloc[0]['fio'] if not fraud_bank_owner.empty else None,
-        'fraud_bank_owner_phone': fraud_bank_owner.iloc[0]['phone'] if not fraud_bank_owner.empty else None
+        'victim_account': row[0],
+        'victim_phone': row[1],
+        'fraud_account': row[2],
+        'transaction_date': row[3],
+        'fraud_bank_owner_id': row[4],
+        'fraud_bank_owner_fio': row[5],
+        'fraud_bank_owner_phone': row[6]
     }
 
 
+def find_calls_between(cursor, victim_phone, fraud_account):
+    query = """
+        SELECT 
+            mb.event_date, mb.from_call, mb.to_call, mb.duration_sec,
+            mc.phone as fraud_phone, mc.client_id as fraud_mobile_id, mc.fio as fraud_fio
+        FROM bank_clients bc
+        JOIN ecosystem_mapping em ON em.bank_id = bc.userId
+        JOIN mobile_clients mc ON mc.client_id = em.mobile_id
+        JOIN mobile_build mb ON 
+            (mb.from_call = mc.phone AND mb.to_call = ?) OR 
+            (mb.from_call = ? AND mb.to_call = mc.phone)
+        WHERE bc.account = ?
+    """
+
+    cursor.execute(query, (victim_phone, victim_phone, fraud_account))
+    columns = [column[0] for column in cursor.description] if cursor.description else []
+    calls = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    return calls if calls else None
+
+
+def find_market_activity(cursor, fraud_account):
+    query = """
+        SELECT 
+            md.event_date, md.user_id as fraud_market_id, md.contact_fio, md.contact_phone, md.address,
+            bc.userId as fraud_bank_id
+        FROM bank_clients bc
+        JOIN ecosystem_mapping em ON em.bank_id = bc.userId
+        JOIN market_place_delivery md ON md.user_id = em.marketplace_id
+        WHERE bc.account = ?
+    """
+    cursor.execute(query, (fraud_account,))
+    columns = [column[0] for column in cursor.description] if cursor.description else []
+    deliveries = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    return deliveries if deliveries else None
+
+
+cursor = conn.cursor()
+
+print("Загрузка жалоб...")
+bank_complaints = pd.read_csv(COMPLAINTS_FILE, sep='\t')
+
 fraud_cases = []
+
+print("Поиск мошенников...")
 for idx, complaint in bank_complaints.iterrows():
-    case = find_fraud_by_complaint(complaint, bank_clients, bank_transactions)
-    if case: fraud_cases.append(case)
+    victim_id = complaint.get('uerId', complaint.get('userId'))
 
-fraud_cases_df = pd.DataFrame(fraud_cases)
+    case = find_fraud_by_complaint(cursor, victim_id, complaint['text'], complaint['event_date'])
 
+    if case:
+        calls = find_calls_between(cursor, case['victim_phone'], case['fraud_account'])
+        case['has_calls'] = 1 if calls else 0
+        case['calls_data'] = calls
 
-# --- Модуль 3: Поиск телефонных связей ---
-def find_calls_between(victim_phone, fraud_account, mobile_build_df, mobile_clients_df, ecosystem_mapping_df,
-                       transaction_date):
-    victim_phone_int = int(victim_phone)
-    fraud_bank_owner = bank_clients[bank_clients['accout'] == fraud_account]
-    if fraud_bank_owner.empty: return None
-    fraud_bank_id = fraud_bank_owner.iloc[0]['userId']
+        market_data = find_market_activity(cursor, case['fraud_account'])
+        case['has_market_activity'] = 1 if market_data else 0
+        case['market_deliveries_count'] = len(market_data) if market_data else 0
+        case['market_data'] = market_data
 
-    mapping = ecosystem_mapping_df[ecosystem_mapping_df['bank_id'] == fraud_bank_id]
-    if mapping.empty: return None
-    fraud_mobile_id = mapping.iloc[0]['mobile_user_id']
-    if pd.isna(fraud_mobile_id): return None
+        fraud_cases.append(case)
 
-    fraud_mobile = mobile_clients_df[mobile_clients_df['client_id'] == fraud_mobile_id]
-    if fraud_mobile.empty: return None
-    fraud_phone_int = int(fraud_mobile.iloc[0]['phone'])
+conn.close()
 
-    calls = mobile_build_df[
-        ((mobile_build_df['from_call'] == victim_phone_int) & (mobile_build_df['to_call'] == fraud_phone_int)) |
-        ((mobile_build_df['from_call'] == fraud_phone_int) & (mobile_build_df['to_call'] == victim_phone_int))
-        ]
-    if calls.empty: return None
+if fraud_cases:
+    print(f"Найдено мошенников: {len(fraud_cases)}")
 
-    result = calls.copy()
-    result['fraud_phone'] = fraud_phone_int
-    result['fraud_mobile_id'] = fraud_mobile_id
-    result['fraud_fio'] = fraud_mobile.iloc[0]['fio']
-    return result
+    df_main = pd.DataFrame(fraud_cases).drop(columns=['calls_data', 'market_data'])
+    df_main.to_csv(DATA_PATH + 'fraud_cases_detected.csv', index=False)
 
+    for case in fraud_cases:
+        f_acc = case['fraud_account']
+        if case['has_market_activity']:
+            pd.DataFrame(case['market_data']).to_csv(DATA_PATH + f'fraud_market_{f_acc}.csv', index=False)
+        if case['has_calls']:
+            pd.DataFrame(case['calls_data']).to_csv(DATA_PATH + f'fraud_calls_{f_acc}.csv', index=False)
 
-for idx, case in fraud_cases_df.iterrows():
-    calls = find_calls_between(case['victim_phone'], case['fraud_account'], mobile_build, mobile_clients,
-                               ecosystem_mapping, case['transaction_date'])
-    fraud_cases_df.loc[idx, 'has_calls'] = 0 if calls is None else 1
-
-
-# --- Модуль 4: Маркетплейсы ---
-def find_market_activity(fraud_account, bank_clients_df, ecosystem_mapping_df, market_delivery_df):
-    fraud_bank_owner = bank_clients_df[bank_clients_df['accout'] == fraud_account]
-    if fraud_bank_owner.empty: return None
-    fraud_bank_id = fraud_bank_owner.iloc[0]['userId']
-
-    mapping = ecosystem_mapping_df[ecosystem_mapping_df['bank_id'] == fraud_bank_id]
-    if mapping.empty: return None
-    fraud_market_id = mapping.iloc[0]['market_plece_user_id']
-    if pd.isna(fraud_market_id): return None
-
-    deliveries = market_delivery_df[market_delivery_df['user_id'] == fraud_market_id]
-    if deliveries.empty: return None
-
-    result = deliveries.copy()
-    result['fraud_bank_id'] = fraud_bank_id
-    result['fraud_market_id'] = fraud_market_id
-    return result
-
-
-for idx, case in fraud_cases_df.iterrows():
-    market_data = find_market_activity(case['fraud_account'], bank_clients, ecosystem_mapping, market_delivery)
-    fraud_cases_df.loc[idx, 'has_market_activity'] = 0 if market_data is None else 1
-    if market_data is not None:
-        fraud_cases_df.loc[idx, 'market_deliveries_count'] = len(market_data)
-
-# --- Модуль 5: Сохранение результатов ---
-fraud_cases_df.to_csv(DATA_PATH + 'fraud_cases_detected.csv', index=False)
-
-for idx, case in fraud_cases_df.iterrows():
-    if case['has_market_activity']:
-        market_data = find_market_activity(case['fraud_account'], bank_clients, ecosystem_mapping, market_delivery)
-        if market_data is not None:
-            market_data.to_csv(DATA_PATH + f"fraud_market_{case['fraud_account']}.csv", index=False)
-
-    if case['has_calls']:
-        calls = find_calls_between(case['victim_phone'], case['fraud_account'], mobile_build, mobile_clients,
-                                   ecosystem_mapping, case['transaction_date'])
-        if calls is not None:
-            calls.to_csv(DATA_PATH + f"fraud_calls_{case['fraud_account']}.csv", index=False)
-
-
-# --- Подготовка данных для Neo4j ---
-def prepare_neo4j_data(fraud_cases_df, bank_clients_df, mobile_clients_df, ecosystem_mapping_df):
     neo4j_nodes, neo4j_edges = [], []
-    for idx, case in fraud_cases_df.iterrows():
+    for case in fraud_cases:
         neo4j_nodes.append({
             'id': f"victim_{case['complaint_id']}", 'type': 'person', 'role': 'victim',
             'bank_id': case['complaint_id'], 'account': case['victim_account'], 'phone': case['victim_phone']
         })
-        if pd.notna(case['fraud_bank_owner_id']):
+        if case['fraud_bank_owner_id']:
             neo4j_nodes.append({
                 'id': f"fraud_{case['fraud_bank_owner_id']}", 'type': 'person', 'role': 'fraud',
                 'bank_id': case['fraud_bank_owner_id'], 'account': case['fraud_account'],
@@ -186,18 +167,10 @@ def prepare_neo4j_data(fraud_cases_df, bank_clients_df, mobile_clients_df, ecosy
                 'from': f"victim_{case['complaint_id']}", 'to': f"fraud_{case['fraud_bank_owner_id']}",
                 'type': 'TRANSFERRED', 'amount': case['extracted_amount'], 'date': case['transaction_date']
             })
-    return pd.DataFrame(neo4j_nodes), pd.DataFrame(neo4j_edges)
 
+    pd.DataFrame(neo4j_nodes).to_csv(DATA_PATH + 'neo4j_nodes.csv', index=False)
+    pd.DataFrame(neo4j_edges).to_csv(DATA_PATH + 'neo4j_edges.csv', index=False)
 
-nodes_df, edges_df = prepare_neo4j_data(fraud_cases_df, bank_clients, mobile_clients, ecosystem_mapping)
-nodes_df.to_csv(DATA_PATH + 'neo4j_nodes.csv', index=False)
-edges_df.to_csv(DATA_PATH + 'neo4j_edges.csv', index=False)
-
-# --- Вывод результатов ---
-print(f"\nВсего жалоб в базе: {len(bank_complaints)}")
-print(f" Найдено мошенников: {len(fraud_cases_df)}")
-
-if len(fraud_cases_df) > 0:
-    print("\nСписок мошенников:")
-    print(fraud_cases_df[['complaint_id', 'extracted_amount', 'fraud_account', 'fraud_bank_owner_fio']])
-    fraud_cases_df.to_csv('data/all_fraud_cases.csv', index=False)
+    print("Все результаты успешно сохранены в папку data/")
+else:
+    print("Мошенники не найдены.")
