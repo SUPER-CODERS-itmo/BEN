@@ -18,7 +18,6 @@ class AmountExtractor:
 
     def __init__(self):
         """Инициализирует регулярные выражения для поиска валют."""
-        # Скомпилированные паттерны работают быстрее при массовой обработке
         self.amount_pattern = re.compile(
             r'(\d+)[\s]?(?:р|руб|рублей|₽|[\.,][\s]?р)',
             re.IGNORECASE
@@ -43,12 +42,10 @@ class AmountExtractor:
 
         text_lower = str(text).lower()
 
-        # 1. Поиск по стандартным паттернам (руб, р, ₽)
         match = self.amount_pattern.search(text_lower)
         if match:
             return int(match.group(1))
 
-        # 2. Поиск по ключевому слову "пропали"
         loss_match = self.loss_keyword_pattern.search(text_lower)
         if loss_match:
             return int(loss_match.group(1))
@@ -61,15 +58,22 @@ class EcosystemDB:
 
     def __init__(self, db_path: str):
         """
-        Устанавливает соединение с SQLite.
-
-        Args:
-            db_path: Путь к файлу базы данных.
+        Инициализирует параметры подключения.
+        Само подключение происходит через менеджер контекста (with).
         """
-        self.conn = sqlite3.connect(db_path)
-        # Позволяет обращаться к колонкам по имени
+        self.db_path = db_path
+        self.conn: Optional[sqlite3.Connection] = None
+
+    def __enter__(self):
+        """Открывает соединение при входе в блок with."""
+        self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
-        self.cursor = self.conn.cursor()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Гарантированно закрывает соединение при выходе из блока with."""
+        if self.conn:
+            self.conn.close()
 
     def find_transaction_info(self, victim_id: int, amount: int) -> Optional[sqlite3.Row]:
         """
@@ -98,20 +102,12 @@ class EcosystemDB:
             ORDER BY t.event_date DESC
             LIMIT 1
         """
-        self.cursor.execute(query, (victim_id, amount))
-        return self.cursor.fetchone()
+        cursor = self.conn.cursor()
+        cursor.execute(query, (victim_id, amount))
+        return cursor.fetchone()
 
     def get_calls(self, victim_phone: str, fraud_phone: str) -> List[Dict[str, Any]]:
-        """
-        Получает историю звонков между жертвой и подозреваемым.
-
-        Args:
-            victim_phone: Телефон жертвы.
-            fraud_phone: Телефон мошенника.
-
-        Returns:
-            List[Dict]: Список записей о звонках.
-        """
+        """Получает историю звонков между жертвой и подозреваемым."""
         query = """
             SELECT 
                 event_date, from_call, to_call, duration_sec
@@ -119,19 +115,12 @@ class EcosystemDB:
             WHERE (from_call = ? AND to_call = ?)
                OR (from_call = ? AND to_call = ?)
         """
-        self.cursor.execute(query, (victim_phone, fraud_phone, fraud_phone, victim_phone))
-        return [dict(row) for row in self.cursor.fetchall()]
+        cursor = self.conn.cursor()
+        cursor.execute(query, (victim_phone, fraud_phone, fraud_phone, victim_phone))
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_market_activity(self, fraud_bank_id: int) -> List[Dict[str, Any]]:
-        """
-        Находит активность мошенника на маркетплейсе через маппинг ID.
-
-        Args:
-            fraud_bank_id: ID мошенника в банковской системе.
-
-        Returns:
-            List[Dict]: Список доставок.
-        """
+        """Находит активность мошенника на маркетплейсе через маппинг ID."""
         query = """
             SELECT 
                 md.event_date, md.contact_fio, md.contact_phone, md.address
@@ -139,25 +128,16 @@ class EcosystemDB:
             JOIN market_place_delivery md ON md.user_id = em.marketplace_id
             WHERE em.bank_id = ?
         """
-        self.cursor.execute(query, (fraud_bank_id,))
-        return [dict(row) for row in self.cursor.fetchall()]
-
-    def close(self):
-        """Закрывает соединение с БД."""
-        self.conn.close()
+        cursor = self.conn.cursor()
+        cursor.execute(query, (fraud_bank_id,))
+        return [dict(row) for row in cursor.fetchall()]
 
 
 class FraudInvestigator:
     """Оркестратор процесса расследования мошенничества."""
 
     def __init__(self, db_path: str, complaints_path: str, output_dir: str):
-        """
-        Args:
-            db_path: Путь к БД.
-            complaints_path: Путь к TSV файлу с жалобами.
-            output_dir: Директория для сохранения результатов.
-        """
-        self.db = EcosystemDB(db_path)
+        self.db_path = db_path
         self.extractor = AmountExtractor()
         self.complaints_path = complaints_path
         self.output_dir = Path(output_dir)
@@ -173,26 +153,29 @@ class FraudInvestigator:
             logger.error(f"Ошибка при загрузке файла: {e}")
             return
 
-        logger.info(f"Обработка {len(df)} записей...")
-        for _, row in df.iterrows():
-            # Обработка опечатки в названии колонки (uerId -> userId)
-            v_id = row.get('userId') if pd.notnull(row.get('userId')) else row.get('uerId')
-            text = row['text']
+        records = df.to_dict('records')
+        logger.info(f"Обработка {len(records)} записей...")
 
-            amount = self.extractor.extract(text)
-            if not amount:
-                continue
+        with EcosystemDB(self.db_path) as db:
+            for row in records:
+                # Обработка опечатки в названии колонки
+                v_id = row.get('userId') if pd.notnull(row.get('userId')) else row.get('uerId')
+                text = row.get('text')
 
-            trans = self.db.find_transaction_info(v_id, amount)
-            if trans:
-                case = self._process_fraud_case(v_id, text, row['event_date'], amount, trans)
-                self.cases.append(case)
+                amount = self.extractor.extract(text)
+                if not amount:
+                    continue
+
+                trans = db.find_transaction_info(v_id, amount)
+                if trans:
+                    case = self._process_fraud_case(db, v_id, text, row.get('event_date'), amount, trans)
+                    self.cases.append(case)
 
         self._save_results()
-        self.db.close()
         logger.info("Расследование завершено.")
 
-    def _process_fraud_case(self, v_id: int, text: str, date: str, amount: int, trans: sqlite3.Row) -> Dict[str, Any]:
+    def _process_fraud_case(self, db: EcosystemDB, v_id: int, text: str,
+                            date: str, amount: int, trans: sqlite3.Row) -> Dict[str, Any]:
         """
         Обогащает данные кейса информацией из других систем (мобильная связь, маркетплейс).
         """
@@ -210,13 +193,11 @@ class FraudInvestigator:
             'fraud_bank_owner_phone': trans['fraud_phone']
         }
 
-        # Обогащение звонками
-        calls = self.db.get_calls(case['victim_phone'], case['fraud_bank_owner_phone'])
+        calls = db.get_calls(case['victim_phone'], case['fraud_bank_owner_phone'])
         case['calls_data'] = calls
         case['has_calls'] = 1 if calls else 0
 
-        # Обогащение маркетплейсом
-        market = self.db.get_market_activity(case['fraud_bank_owner_id'])
+        market = db.get_market_activity(case['fraud_bank_owner_id'])
         case['market_data'] = market
         case['has_market_activity'] = 1 if market else 0
 
@@ -230,7 +211,6 @@ class FraudInvestigator:
 
         logger.info(f"Найдено {len(self.cases)} потенциальных кейсов. Сохранение...")
 
-        # Основной отчет
         df_main = pd.DataFrame(self.cases).drop(columns=['calls_data', 'market_data'])
         df_main.to_csv(self.output_dir / "fraud_cases_detected.csv", index=False)
 
