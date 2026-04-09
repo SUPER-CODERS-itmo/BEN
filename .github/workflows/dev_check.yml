@@ -1,0 +1,32 @@
+name: Dev Branch Check
+
+on:
+  push:
+    branches:
+      - alice_back
+      - sasha_back
+
+  pull_request:
+      branches:
+        - back
+
+jobs:
+  my-super-test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4  # Качает ту ветку, в которую был пуш
+
+      - name: Set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Installing frameworks
+        run: |
+          pip install pandas numpy faker
+      - name: Run local tests
+        run: |
+          python -m unittest discover
+
+
