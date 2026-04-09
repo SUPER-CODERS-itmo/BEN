@@ -19,7 +19,7 @@ jobs:
 
       - name: Installing frameworks
         run: |
-          pip install pandas numpy 
+          pip install pandas numpy faker
 
       - name: Download application
         uses: actions/checkout@v4

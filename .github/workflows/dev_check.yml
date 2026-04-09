@@ -24,7 +24,7 @@ jobs:
 
       - name: Installing frameworks
         run: |
-          pip install pandas numpy
+          pip install pandas numpy faker
       - name: Run local tests
         run: |
           python -m unittest discover
