@@ -5,7 +5,7 @@
 
 ## Тестирование системы
 
-::: test_fraud_analysis
+::: tests_fraud_analysis
     options:
       show_root_heading: true
 

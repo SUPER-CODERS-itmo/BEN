@@ -64,9 +64,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install mkdocs-material mkdocstrings[python]
-          # Обязательно ставим зависимости твоего кода, иначе mkdocstrings не сможет его прочитать
-          pip install pandas numpy faker
-          # Если есть специфичные либы, добавь их сюда или создай requirements.txt
+          pip install pandas numpy faker pytest
+
+      - name: Force Python Packages
+        run: |
+          # Создаем __init__.py там, где их может не хватать для импорта
+          touch src_back/__init__.py
+          touch src_alice/__init__.py
+          touch src_sasha/__init__.py
+          touch src_tests/tests/__init__.py # Если тесты лежат в папке tests внутри ветки
+      # 5. Билд
+      - name: Build and Deploy
+        run: mkdocs gh-deploy --force
+        env:
+          # Указываем пути явно для всей системы
+          PYTHONPATH: ".:src_back:src_alice:src_sasha:src_tests:src_tests/tests"
 
       # 5. Сборка и деплой
       - name: Build and Deploy to GitHub Pages
