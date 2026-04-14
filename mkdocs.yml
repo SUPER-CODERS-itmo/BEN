@@ -8,8 +8,6 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   language: ru
-  extra_css:
-    - stylesheets/extra.css
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -37,7 +35,8 @@ theme:
     - search.share
     - navigation.expand
     - navigation.path
-
+extra_css:
+  - stylesheets/extra.css
 plugins:
   - search
   - mkdocstrings:
