@@ -8,6 +8,8 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   language: ru
+  extra_css:
+    - stylesheets/extra.css
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default

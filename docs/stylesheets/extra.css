@@ -1,0 +1,24 @@
+:root {
+  /* Твой кастомный цвет */
+  --md-primary-fg-color: #C3FC6D;
+  --md-primary-fg-color--light: #d6ff9e;
+  --md-primary-fg-color--dark: #a8e05a;
+
+  /* Текст в шапке */
+  --md-primary-bg-color: #000000;
+}
+
+/* цвет текста */
+.md-header {
+  color: #000;
+}
+.md-header__button {
+  color: #000;
+}
+.md-tabs__link {
+  color: #000;
+}
+.md-tabs__link--active {
+  color: #000;
+  font-weight: bold;
+}
