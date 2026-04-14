@@ -1,27 +1,35 @@
-:root {
-  /* Основной лаймовый цвет (твой неон) */
+/* Перекрашиваем основные переменные темы */
+:root, [data-md-color-scheme="slate"], [data-md-color-scheme="default"] {
   --md-primary-fg-color: #C3FC6D !important;
   --md-primary-fg-color--light: #d6ff9e !important;
   --md-primary-fg-color--dark: #a8e05a !important;
-
-  /* Цвет для прозрачных элементов (например, при наведении) */
-  --md-primary-fg-color--transparent: rgba(195, 252, 109, 0.1) !important;
+  --md-primary-bg-color: #000000 !important;
+  --md-primary-bg-color--light: rgba(195, 252, 109, 0.1) !important;
 }
 
-/* Красим саму плашку шапки (Header) */
-.md-header {
+/* Красим шапку сайта */
+header.md-header {
   background-color: #C3FC6D !important;
-  color: #000000 !important; /* Весь текст в шапке делаем черным */
 }
 
-/* Иконки в шапке: поиск, меню, гитхаб и кнопка темы */
+/* Текст и кнопки в шапке (делаем черными для контраста) */
+.md-header__title,
 .md-header__button,
-.md-header__button.md-logo,
-.md-header__title {
+.md-header__topic,
+.md-tabs__link,
+.md-source__repository,
+.md-source__icon {
   color: #000000 !important;
 }
 
-/* Настраиваем поиск, чтобы внутри него тоже всё было читаемо */
+/* Активный таб в навигации */
+.md-tabs__link--active {
+  color: #000000 !important;
+  opacity: 1 !important;
+  font-weight: 800 !important;
+}
+
+/* Цвет строки поиска */
 .md-search__input {
   color: #000000 !important;
 }
@@ -29,21 +37,7 @@
   color: #000000 !important;
 }
 
-/* Верхние табы (если используешь navigation.tabs) */
+/* Полоска под табами */
 .md-tabs {
   background-color: #C3FC6D !important;
-}
-
-.md-tabs__link {
-  color: rgba(0, 0, 0, 0.7) !important; /* Неактивные табы - чуть тусклее */
-}
-
-.md-tabs__link--active {
-  color: #000000 !important; /* Активный таб - чисто черный */
-  font-weight: bold;
-}
-
-/* Исправляем цвет иконки Гитхаба и количества звезд/форков */
-.md-source__icon, .md-source__repository {
-  color: #000000 !important;
 }

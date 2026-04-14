@@ -4,6 +4,7 @@ repo_url: https://github.com/SUPER-CODERS-itmo/BEN
 repo_name: SUPER-CODERS-itmo/BEN
 edit_uri: edit/main/docs/
 
+# Подключаем кастомные стили (файл должен лежать в docs/stylesheets/extra.css)
 extra_css:
   - stylesheets/extra.css
 
@@ -20,7 +21,7 @@ theme:
         name: Темная тема
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
+      primary: indigo # CSS это перекрасит в лайм
       accent: indigo
       toggle:
         icon: material/brightness-4
@@ -31,12 +32,10 @@ theme:
     - navigation.top
     - search.suggest
     - search.highlight
-    - content.code.copy
-    - search.suggest
-    - search.highlight
     - search.share
     - navigation.expand
     - navigation.path
+    - content.code.copy
 
 plugins:
   - search
@@ -65,12 +64,12 @@ nav:
   - Telegram Bot: tg.md
 
 markdown_extensions:
-  - admonition          # Цветные блоки "Внимание", "Инфо"
-  - pymdownx.details    # Сворачивающиеся блоки (спойлеры)
-  - pymdownx.superfences # Правильная подсветка кода
-  - pymdownx.emoji:     # Эмодзи как в GitHub
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
-  - pymdownx.tasklist:   # Чек-листы (галочки)
+  - pymdownx.tasklist:
       custom_checkbox: true
-  - attr_list           # Позволяет менять размеры картинок {: width="300"}
+  - attr_list
