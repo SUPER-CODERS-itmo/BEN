@@ -1,72 +1,73 @@
-/* ========================================= */
-/*                   ШАПКА                   */
-/* ========================================= */
+/* ====================================================== */
+/* 1. ШАПКА (ЛАЙМ + ЧЕРНЫЙ ТЕКСТ)    */
+/* ====================================================== */
 .md-header {
   background-color: #C3FC6D !important;
 }
-
-/* Черный текст и иконки в лаймовой шапке */
-.md-header__title,
-.md-header__button,
-.md-tabs__link,
-.md-source__repository,
-.md-source__icon,
-.md-search__icon,
+.md-header__title, .md-header__button, .md-tabs__link,
+.md-source__repository, .md-source__icon, .md-search__icon,
 .md-search__input::placeholder {
   color: #000000 !important;
 }
-
-/* Активный таб в шапке тоже черный */
 .md-tabs__link--active {
   color: #000000 !important;
   opacity: 1 !important;
-  font-weight: bold;
+  font-weight: bold !important;
 }
 
-/* ========================================= */
-/*                КОНТЕНТ СТРАНИЦЫ           */
-/* ========================================= */
+/* ====================================================== */
+/* 2. ВЕСЬ ОСТАЛЬНОЙ КОНТЕНТ         */
+/* ====================================================== */
 
-/* Основной текст на всех страницах */
-:root {
-  --md-typeset-color: #FFFFFF !important;
+/* Перебиваем базовые цвета текста для темной темы */
+[data-md-color-scheme="slate"], :root {
+  --md-default-fg-color: #ffffff !important;        /* Основной текст */
+  --md-default-fg-color--light: #ffffff !important; /* Вторичный текст */
+  --md-default-fg-color--lighter: #ffffff !important;
+  --md-default-fg-color--lightest: #ffffff !important;
+
+  /* Убираем синий акцент у активных элементов */
+  --md-accent-fg-color: #C3FC6D !important;
 }
 
-/* Все заголовки (Тестирование, Бэкенд и т.д.) */
+/* Заголовки на странице */
 .md-typeset h1,
 .md-typeset h2,
 .md-typeset h3,
 .md-typeset h4 {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 
-/* Левое меню (навигация) */
+/* Навигация слева (Меню) */
 .md-nav__link {
-  color: rgba(255, 255, 255, 0.7) !important; /* Неактивные чуть тусклее */
+  color: #ffffff !important; /* Все ссылки белые */
 }
 
-/* Активный пункт в левом меню (тот самый синий на скрине) */
+/* Тот самый СИНИЙ активный пункт (например, Главная или Тестирование) */
 .md-nav__link--active,
+.md-nav--primary .md-nav__link--active,
 .md-nav__link--current {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-weight: bold !important;
 }
 
-/* Правое меню (Содержание страницы) */
+/* Содержание справа */
 .md-sidebar--secondary .md-nav__link {
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: #ffffff !important;
+  opacity: 0.8;
 }
 
 .md-sidebar--secondary .md-nav__link--active {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
+  opacity: 1;
 }
 
-/* Текст внутри автоматической документации (кода) */
-.doc-contents, .doc-heading {
-  color: #FFFFFF !important;
-}
-
-/* Ссылки внутри текста сделаем лаймовыми, чтобы их было видно на черном */
+/* Ссылки внутри текста (пусть будут лаймовыми, чтобы выделялись) */
 .md-typeset a {
   color: #C3FC6D !important;
+}
+
+/* Текст внутри блоков кода и авто-документации */
+.doc-contents, .doc-heading, .md-typeset code {
+  color: #ffffff !important;
 }
