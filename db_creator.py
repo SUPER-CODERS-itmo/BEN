@@ -72,7 +72,8 @@ class DataPopulator:
             );
             CREATE TABLE bank_clients (userId TEXT, account TEXT, phone INTEGER, fio TEXT);
             CREATE TABLE bank_transactions (event_date TEXT, account_out TEXT, account_in TEXT, value REAL);
-            CREATE TABLE market_place_delivery (event_date TEXT, user_id TEXT, contact_fio TEXT, contact_phone INTEGER, address TEXT);
+            CREATE TABLE market_place_delivery (event_date TEXT, user_id TEXT, contact_fio TEXT, contact_phone INTEGER, 
+            address TEXT);
             CREATE TABLE mobile_build (event_date TEXT, from_call INTEGER, to_call INTEGER, duration_sec INTEGER);
             CREATE TABLE mobile_clients (client_id TEXT, phone INTEGER, fio TEXT, address TEXT);
             CREATE TABLE ecosystem_mapping (unique_id TEXT, mobile_id TEXT, bank_id TEXT, marketplace_id TEXT);
