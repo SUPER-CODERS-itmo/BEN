@@ -3,16 +3,18 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, Depends, HTTPException, Query, Header
+from fastapi import FastAPI, Depends, HTTPException, Query, Security
 from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from fraud_analysis import EcosystemDB, AmountExtractor
 
 app = FastAPI(
     title="BEN API",
     description="BEN",
-    version="1.0.0"
+    version="1.1.0"
 )
+security = HTTPBearer()
 
 DB_PATH = 'data/ecosystem_data.db'
 COMPLAINTS_TSV = 'data/bank_complaints.tsv'
@@ -20,10 +22,10 @@ COMPLAINTS_TSV = 'data/bank_complaints.tsv'
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    """Initializes the database and migrates data from TSV to SQLite.
+    """Инициализирует базу данных и переносит данные из TSV в SQLite.
 
-    Checks for existence of source files, creates the complaints table schema,
-    and performs an initial data migration if the table is empty.
+    Проверяет наличие исходных файлов, создает схему таблицы жалоб
+    и выполняет первичную миграцию данных, если таблица пуста.
     """
     if not Path(COMPLAINTS_TSV).exists() or not Path(DB_PATH).exists():
         return
@@ -31,7 +33,7 @@ async def startup_event() -> None:
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS complaints (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT,
                 victim_bank_id TEXT,
                 text TEXT,
                 event_date TEXT,
@@ -61,66 +63,63 @@ async def startup_event() -> None:
 
 @app.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
-    """Redirects the root URL to the API documentation.
+    """Перенаправляет корневой URL на документацию API.
 
-    Returns:
-        A RedirectResponse object pointing to the /docs endpoint.
+    Возвращает:
+        Объект RedirectResponse, указывающий на эндпоинт /docs.
     """
     return RedirectResponse(url="/docs")
 
 
-def verify_token(authorization: Optional[str] = Header(None)) -> str:
-    """Verifies the Bearer token in the Authorization header.
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> str:
+    """Проверяет Bearer-токен и активирует кнопку Authorize в Swagger.
 
-    Args:
-        authorization: The raw Authorization header string.
+    Аргументы:
+        credentials: Данные авторизации, автоматически извлеченные FastAPI.
 
-    Returns:
-        The ID of the verified operator.
+    Возвращает:
+        ID проверенного оператора.
 
-    Raises:
-        HTTPException: If the token is missing, malformed, or invalid.
+    Исключения:
+        HTTPException: Если токен отсутствует, неверно сформирован или невалиден.
     """
-    if authorization is None or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Отсутствует или неверный токен (ожидается 'Bearer <token>')"
-        )
-
-    token = authorization.split(" ")[1]
+    token = credentials.credentials
     if token != "secret-token-123":
-        raise HTTPException(status_code=401, detail="Неверный токен")
+        raise HTTPException(
+            status_code=403,
+            detail="Неверный или просроченный токен доступа"
+        )
 
     return "operator_01"
 
 
 def audit_log(user_id: str, action: str) -> None:
-    """Records security-relevant events to the system log.
+    """Записывает события безопасности в системный лог.
 
-    Args:
-        user_id: The unique identifier of the user performing the action.
-        action: A descriptive string of the operation performed.
+    Аргументы:
+        user_id: Уникальный идентификатор пользователя, совершающего действие.
+        action: Описание выполненной операции.
     """
     print(f"[AUDIT LOG] User: {user_id} | Action: {action}")
 
 
 @app.get("/complaints", dependencies=[Depends(verify_token)])
 async def get_complaints(
-    start_date: Optional[str] = Query(None, description="Дата от (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="Дата до (YYYY-MM-DD)"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, le=100)
+        start_date: Optional[str] = Query(None, description="Дата от (YYYY-MM-DD)"),
+        end_date: Optional[str] = Query(None, description="Дата до (YYYY-MM-DD)"),
+        skip: int = Query(0, ge=0),
+        limit: int = Query(20, le=100)
 ) -> List[Dict[str, Any]]:
-    """Retrieves a list of complaints with filtering and pagination.
+    """Возвращает список жалоб с возможностью фильтрации и пагинации.
 
-    Args:
-        start_date: Start date for the event_date filter.
-        end_date: End date for the event_date filter.
-        skip: Number of records to skip.
-        limit: Maximum number of records to return.
+    Аргументы:
+        start_date: Дата начала для фильтрации по event_date.
+        end_date: Дата окончания для фильтрации по event_date.
+        skip: Количество пропускаемых записей.
+        limit: Максимальное количество возвращаемых записей.
 
-    Returns:
-        A list of dictionaries representing complaint records.
+    Возвращает:
+        Список словарей, представляющих записи жалоб.
     """
     async with EcosystemDB(DB_PATH) as db:
         query = "SELECT * FROM complaints WHERE 1=1"
@@ -144,17 +143,17 @@ async def get_complaints(
 
 
 @app.get("/complaints/{complaint_id}", dependencies=[Depends(verify_token)])
-async def get_complaint(complaint_id: int) -> Dict[str, Any]:
-    """Retrieves the details of a specific complaint.
+async def get_complaint(complaint_id: str) -> Dict[str, Any]:
+    """Возвращает детали конкретной жалобы.
 
-    Args:
-        complaint_id: The unique integer ID of the complaint.
+    Аргументы:
+        complaint_id: Уникальный целочисленный ID жалобы.
 
-    Returns:
-        A dictionary containing the complaint data.
+    Возвращает:
+        Словарь с данными жалобы.
 
-    Raises:
-        HTTPException: If no complaint is found with the given ID.
+    Исключения:
+        HTTPException: Если жалоба с таким ID не найдена.
     """
     async with EcosystemDB(DB_PATH) as db:
         cursor = await db.conn.cursor()
@@ -167,24 +166,24 @@ async def get_complaint(complaint_id: int) -> Dict[str, Any]:
 
 @app.post("/investigate/{complaint_id}")
 async def investigate_complaint(
-    complaint_id: int,
-    user_id: str = Depends(verify_token)
+        complaint_id: str,
+        user_id: str = Depends(verify_token)
 ) -> Dict[str, Any]:
-    """Processes a complaint to identify potential fraud.
+    """Обрабатывает жалобу для выявления потенциального мошенничества.
 
-    Extracts the amount from the complaint text, cross-references it with
-    transactional data, and updates the complaint status if fraud is found.
+    Извлекает сумму из текста жалобы, сопоставляет её с данными транзакций
+    и обновляет статус жалобы в случае обнаружения мошенничества.
 
-    Args:
-        complaint_id: The ID of the complaint to process.
-        user_id: The ID of the operator performing the investigation.
+    Аргументы:
+        complaint_id: ID жалобы для обработки.
+        user_id: ID оператора, проводящего расследование.
 
-    Returns:
-        A dictionary containing the success status and discovered fraud details.
+    Возвращает:
+        Словарь, содержащий статус успеха и детали обнаруженного мошенничества.
 
-    Raises:
-        HTTPException: If the complaint is not found, the amount cannot be
-            extracted, or no matching transaction is located.
+    Исключения:
+        HTTPException: Если жалоба не найдена, не удалось извлечь сумму
+            или не найдена подходящая транзакция.
     """
     extractor = AmountExtractor()
 
@@ -219,7 +218,7 @@ async def investigate_complaint(
         )
         await db.conn.commit()
 
-        audit_log(user_id, f"Investigated complaint #{complaint_id}")
+        audit_log(user_id, f"Расследована жалоба #{complaint_id}")
 
         return {
             "status": "Success",
@@ -236,20 +235,20 @@ async def investigate_complaint(
 
 @app.get("/cases/{fraud_id}/calls", dependencies=[Depends(verify_token)])
 async def get_fraud_calls(
-    fraud_id: str,
-    victim_id: str
+        fraud_id: str,
+        victim_id: str
 ) -> List[Dict[str, Any]]:
-    """Retrieves call logs between a suspect and a victim.
+    """Возвращает логи звонков между подозреваемым и жертвой.
 
-    Args:
-        fraud_id: The bank user ID of the suspect.
-        victim_id: The bank user ID of the victim.
+    Аргументы:
+        fraud_id: Банковский ID пользователя подозреваемого.
+        victim_id: Банковский ID пользователя жертвы.
 
-    Returns:
-        A list of call interaction records.
+    Возвращает:
+        Список записей о взаимодействии через звонки.
 
-    Raises:
-        HTTPException: If phone numbers for either party cannot be resolved.
+    Исключения:
+        HTTPException: Если не удается определить номера телефонов для любой из сторон.
     """
     async with EcosystemDB(DB_PATH) as db:
         cursor = await db.conn.cursor()
@@ -284,13 +283,13 @@ async def get_fraud_calls(
 
 @app.get("/cases/{fraud_id}/delivery", dependencies=[Depends(verify_token)])
 async def get_fraud_delivery(fraud_id: str) -> Dict[str, Any]:
-    """Retrieves marketplace delivery history for a suspect.
+    """Возвращает историю доставок на маркетплейсе для подозреваемого.
 
-    Args:
-        fraud_id: The unique identifier of the suspect.
+    Аргументы:
+        fraud_id: Уникальный идентификатор подозреваемого.
 
-    Returns:
-        A dictionary containing delivery records or an empty message.
+    Возвращает:
+        Словарь, содержащий записи о доставках, или сообщение об их отсутствии.
     """
     async with EcosystemDB(DB_PATH) as db:
         market_data = await db.get_market_activity(fraud_id)
