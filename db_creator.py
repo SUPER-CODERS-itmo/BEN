@@ -76,6 +76,15 @@ class DataPopulator:
             CREATE TABLE mobile_build (event_date TEXT, from_call INTEGER, to_call INTEGER, duration_sec INTEGER);
             CREATE TABLE mobile_clients (client_id TEXT, phone INTEGER, fio TEXT, address TEXT);
             CREATE TABLE ecosystem_mapping (unique_id TEXT, mobile_id TEXT, bank_id TEXT, marketplace_id TEXT);
+            
+            CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_admin INTEGER DEFAULT 0,
+            has_telegram INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """)
 
     def generate_data(self, n_users: int = 100, n_frauds: int = 10):
