@@ -423,12 +423,46 @@ const initDashboard = () => {
     const listContainer = document.querySelector('#suspectsList');
     const slider = document.querySelector('#contentSlider');
     const tabButtons = document.querySelectorAll('.nav-btn');
+    const mainContainer = document.querySelector('.main__container');
 
     const summaryPane = document.querySelector('#tab-summary');
     const operationsPane = document.querySelector('#tab-operations');
     const connectionsPane = document.querySelector('#tab-connections');
 
     let currentSuspectId = suspectsData[0].id;
+
+    // ─── Мобильная навигация ─────────────────────────────────────────────────
+
+    const isMobile = () => window.innerWidth < 876;
+
+    const header = document.querySelector('.header');
+
+    // Показать детальный вид (скрыть список)
+    const showDetail = () => {
+        mainContainer.classList.add('main__container--detail-view');
+        header.classList.add('header--detail-mode');
+    };
+
+    // Вернуться к списку
+    const showList = () => {
+        mainContainer.classList.remove('main__container--detail-view');
+        header.classList.remove('header--detail-mode');
+        // Сбрасываем слайдер на первую вкладку
+        slider.style.transform = 'translateX(0%)';
+        tabButtons.forEach((b, i) => {
+            b.classList.toggle('active', i === 0);
+        });
+    };
+
+    // Вставляем кнопку "Назад" в контент (один раз)
+    const contentEl = document.querySelector('.content');
+    const backBtn = document.createElement('button');
+    backBtn.className = 'mobile-back-btn';
+    backBtn.textContent = 'Назад';
+    backBtn.addEventListener('click', showList);
+    contentEl.insertBefore(backBtn, contentEl.firstChild);
+
+    // ─── Рендер контента ─────────────────────────────────────────────────────
 
     // Вся информация из бд переводится в html и вставляется в основной файл
     const updateAllPanes = () => {
@@ -596,6 +630,11 @@ const initDashboard = () => {
                 cards.forEach(c => c.classList.remove('active'));
                 card.classList.add('active');
                 updateAllPanes();
+
+                // На мобилке — переходим в детальный вид
+                if (isMobile()) {
+                    showDetail();
+                }
             });
         });
     };
@@ -617,6 +656,7 @@ const initDashboard = () => {
     renderList();
     updateAllPanes();
 };
+
 
 /***/ }
 
