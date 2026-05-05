@@ -191,7 +191,7 @@ async def cb_set_tg_start(cb: CallbackQuery, state: FSMContext, users_db: UsersD
         f"• {u['username']} — {u['telegram_id'] or 'не задан'}"
         for u in users
     )
-    await cb.message.answer(f"Введите логин пользователя:\n\n{names}")
+    await cb.message.answer(f"Введите логин пользователя:\n\n{names}", parse_mode=None)
     await state.set_state(SetTgIdFSM.username)
 
 
