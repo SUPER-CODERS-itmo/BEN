@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 # Конфигурация
-DB_PATH = 'data/ecosystem_data.db'
+DB_PATH = 'data/users.db'
 SALT = "bankguard_salt_2024"
 
 

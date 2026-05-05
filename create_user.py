@@ -31,7 +31,7 @@
     Администратор? (да/нет): нет
     Есть Telegram? (да/нет): да
 
-    ✅ Пользователь 'ivanov' успешно создан
+     Пользователь 'ivanov' успешно создан
 
 Примечания:
     - При первом запуске базы данных автоматически создаётся демо-администратор
@@ -51,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from auth import create_user, get_all_users
 
 # Конфигурация
-DB_PATH = 'data/ecosystem_data.db'
+DB_PATH = 'data/users.db'
 
 
 def print_header(text: str, char: str = "=", length: int = 60) -> None:
