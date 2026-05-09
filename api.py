@@ -24,7 +24,7 @@ COMPLAINTS_TSV = 'data/bank_complaints.tsv'
 
 
 def verify_token(
-    credentials: HTTPAuthorizationCredentials = Security(security)
+        credentials: HTTPAuthorizationCredentials = Security(security)
 ) -> str:
     """Проверяет токен авторизации.
 
@@ -75,10 +75,10 @@ def root() -> RedirectResponse:
 
 @app.get("/complaints", dependencies=[Depends(verify_token)])
 async def get_complaints(
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    skip: int = 0,
-    limit: int = 20
+        start_date: Optional[str] = Query(None),
+        end_date: Optional[str] = Query(None),
+        skip: int = 0,
+        limit: int = 20
 ) -> List[Dict[str, Any]]:
     """Возвращает список жалоб с фильтрацией по дате.
 
@@ -125,8 +125,8 @@ async def get_complaint_text(complaint_id: str) -> Dict[str, str]:
 
 @app.post("/investigate/{complaint_id}")
 async def investigate(
-    complaint_id: str,
-    user_id: str = Depends(verify_token)
+        complaint_id: str,
+        user_id: str = Depends(verify_token)
 ) -> Dict[str, Any]:
     """Запускает процесс расследования по жалобе.
 
@@ -153,8 +153,8 @@ async def investigate(
 
 @app.get("/cases/{fraud_id}/calls", dependencies=[Depends(verify_token)])
 async def get_calls(
-    fraud_id: str,
-    victim_id: str
+        fraud_id: str,
+        victim_id: str
 ) -> List[Dict[str, Any]]:
     """Получает историю звонков между предполагаемым мошенником и жертвой.
 
@@ -173,12 +173,12 @@ async def get_calls(
 
         # 1. Получаем телефонные номера участников
         async with db.execute(
-            "SELECT phone FROM bank_clients WHERE userId = ?", (fraud_id,)
+                "SELECT phone FROM bank_clients WHERE userId = ?", (fraud_id,)
         ) as cursor:
             f_row = await cursor.fetchone()
 
         async with db.execute(
-            "SELECT phone FROM bank_clients WHERE userId = ?", (victim_id,)
+                "SELECT phone FROM bank_clients WHERE userId = ?", (victim_id,)
         ) as cursor:
             v_row = await cursor.fetchone()
 
@@ -228,7 +228,66 @@ async def get_delivery(fraud_id: str) -> Dict[str, Any]:
             WHERE user_id = ?
         """
         async with db.execute(
-            delivery_query, (mapping['marketplace_id'],)
+                delivery_query, (mapping['marketplace_id'],)
         ) as cursor:
             rows = await cursor.fetchall()
             return {"data": [dict(r) for r in rows]}
+
+
+@app.get("/full-profile/{bank_id}", dependencies=[Depends(verify_token)])
+async def get_full_profile_endpoint(bank_id: str) -> Dict[str, Any]:
+    """Получает полный профиль пользователя по его банковскому ID.
+
+    Args:
+        bank_id: Банковский идентификатор пользователя.
+
+    Returns:
+        Словарь с полным профилем пользователя (транзакции, жалобы, звонки).
+
+    Raises:
+        HTTPException: Если пользователь не найден.
+    """
+    investigator = FraudInvestigator(DB_PATH, COMPLAINTS_TSV)
+
+    profile = await investigator.fetch_full_user_profile(bank_id)
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    return profile
+
+
+@app.get("/frauds", dependencies=[Depends(verify_token)])
+async def get_frauds(
+        start_date: Optional[str] = Query(None),
+        end_date: Optional[str] = Query(None),
+        skip: int = 0,
+        limit: int = 10
+) -> List[Dict[str, Any]]:
+    """Возвращает список полных профилей мошенников, найденных по жалобам."""
+
+    df = read_complaints_safe()
+
+    if start_date:
+        df = df[df['event_date'] >= start_date]
+    if end_date:
+        df = df[df['event_date'] <= f"{end_date} 23:59:59"]
+
+    investigator = FraudInvestigator(DB_PATH, COMPLAINTS_TSV)
+    results = []
+
+    victim_ids = df.iloc[skip: skip + limit]['userId'].tolist()
+
+    for v_id in victim_ids:
+        res_json = await investigator.investigate_single_case(str(v_id))
+        res_data = json.loads(res_json)
+
+        if "fraud_bank_id" in res_data:
+            fraud_bank_id = res_data["fraud_bank_id"]
+
+            full_profile = await investigator.fetch_full_user_profile(fraud_bank_id)
+
+            if full_profile:
+                results.append(full_profile)
+
+    return results

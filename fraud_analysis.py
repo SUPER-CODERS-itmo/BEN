@@ -90,28 +90,38 @@ class EcosystemDB:
         async with self.conn.execute(complaints_query, (account,)) as cursor:
             complaints_raw = await cursor.fetchall()
         async with self.conn.execute(
-            "SELECT * FROM bank_transactions WHERE account_out = ? OR account_in = ? LIMIT 10",
-            (account, account)
+                "SELECT * FROM bank_transactions WHERE account_out = ? OR account_in = ? LIMIT 10",
+                (account, account)
         ) as cursor:
             transfers_raw = await cursor.fetchall()
 
-        # Безопасное извлечение телефона
-        phone_mobile = user['phone_mobile']
-        calls_raw: List[aiosqlite.Row] = []
-        if phone_mobile:
-            phone = str(int(phone_mobile))
-            async with self.conn.execute(
-                "SELECT * FROM mobile_build WHERE from_call = ? OR to_call = ? LIMIT 10",
-                (phone, phone)
-            ) as cursor:
-                calls_raw = await cursor.fetchall()
+            # Безопасное извлечение телефона
+            phone_mobile = user['phone_mobile']
+            calls_raw: List[aiosqlite.Row] = []
+            if phone_mobile:
+                phone = str(int(phone_mobile))
+                async with self.conn.execute(
+                        "SELECT * FROM mobile_build WHERE from_call = ? OR to_call = ? LIMIT 10",
+                        (phone, phone)
+                ) as cursor:
+                    calls_raw = await cursor.fetchall()
 
-        return {
-            "user": user,
-            "complaints": complaints_raw,
-            "transfers": transfers_raw,
-            "calls": calls_raw
-        }
+            mkt_id = user['marketplace_id']
+            orders_raw: List[aiosqlite.Row] = []
+            if mkt_id:
+                async with self.conn.execute(
+                        "SELECT * FROM market_place_delivery WHERE user_id = ? LIMIT 10",
+                        (mkt_id,)
+                ) as cursor:
+                    orders_raw = await cursor.fetchall()
+
+            return {
+                "user": user,
+                "complaints": complaints_raw,
+                "transfers": transfers_raw,
+                "calls": calls_raw,
+                "orders": orders_raw
+            }
 
 
 class FraudInvestigator:
@@ -121,7 +131,7 @@ class FraudInvestigator:
         self.db_path = db_path
         self.complaints_path = complaints_path
         self.extractor = AmountExtractor()
-        
+
         # Загружаем датафрейм один раз при инициализации
         try:
             self.complaints_df = pd.read_csv(self.complaints_path, sep='\t')
@@ -129,9 +139,47 @@ class FraudInvestigator:
             logger.error(f"Failed to load complaints file: {e}")
             self.complaints_df = pd.DataFrame()
 
+    def _generate_tags(self, user_row: aiosqlite.Row, transfers: List[aiosqlite.Row]) -> List[str]:
+        """Генерирует список тегов на основе правил бизнес-логики."""
+        tags = []
+
+        user = dict(user_row)
+
+        address = user.get('address', '')
+        if address:
+            city_part = address.split(',')[0].strip()
+            clean_city = re.sub(r'^(д\.|г\.|с\.|ст\.|к\.|клх|п\.)\s*', '', city_part)
+            tags.append(clean_city)
+
+        account = user.get('account')
+        stolen_sum = sum(t['value'] for t in transfers if t['account_in'] == account)
+
+        if stolen_sum >= 50000:
+            tags.append("Крупная кража")
+        elif stolen_sum >= 15000:
+            tags.append("Средняя кража")
+        elif stolen_sum > 1:
+            tags.append("Малая кража")
+
+        mkt_id = user.get('marketplace_id', '')
+        mkt_match = re.search(r'\d+', mkt_id)
+        if mkt_match:
+            mkt_num = int(mkt_match.group())
+            tags.append("Wildberries" if mkt_num % 2 == 0 else "Ozon")
+
+        mob_id = user.get('mobile_id', '')
+        mob_match = re.search(r'\d+$', mob_id)
+        if mob_match:
+            last_two_digits = int(mob_match.group()[-2:])
+            op_code = last_two_digits % 4
+            operators = {0: "МТС", 1: "МегаФон", 2: "Билайн", 3: "Tele2"}
+            tags.append(operators.get(op_code, "Неизвестный оператор"))
+
+        return tags
+
     async def fetch_full_user_profile(self, bank_id: str) -> Optional[Dict[str, Any]]:
         """Собирает и форматирует профиль пользователя из базы данных."""
-        
+
         db = EcosystemDB(self.db_path)
         await db.connect()
         try:
@@ -144,6 +192,7 @@ class FraudInvestigator:
             complaints_raw = data['complaints']
             transfers_raw = data['transfers']
             calls_raw = data['calls']
+            orders_raw = data['orders']
 
             # Безопасное форматирование телефона
             phone_bank = user['phone_bank']
@@ -153,23 +202,35 @@ class FraudInvestigator:
             profile = {
                 "id": user['unique_id'],
                 "name": user['fio_bank'],
-                "status": "подозрительный" if len(complaints_raw) > 0 else "чист",
+                "status": "Мошенник" if len(complaints_raw) > 0 else "Пользователь",
                 "phone": formatted_phone,
                 "address": user['address'],
                 "bankAccount": user['account'],
                 "marketplaceId": user['marketplace_id'],
                 "bankId": user['bank_id'],
                 "threat": "_high" if len(complaints_raw) > 0 else "_low",
-                "reasons": ["жалобы"] if complaints_raw else [],
+                "tags": self._generate_tags(user, transfers_raw),
                 "complaints": [{"author": c['author_name'], "text": c['text']} for c in complaints_raw],
                 "transfers": [
-                    {"date": t['event_date'], "sum": f"{t['value']} ₽", "from": t['account_out'], "to": t['account_in']} 
+                    {"date": t['event_date'], "sum": f"{t['value']} ₽", "from": t['account_out'], "to": t['account_in']}
                     for t in transfers_raw
                 ],
                 "calls": [
-                    {"date": c['event_date'], "duration": f"{c['duration_sec']} сек.", "from": c['from_call'], "to": c['to_call']} 
+                    {"date": c['event_date'], "duration": f"{c['duration_sec']} сек.", "from": c['from_call'],
+                     "to": c['to_call']}
                     for c in calls_raw
-                ]
+                ],
+                "orders": [
+                    {
+                        "date": o['event_date'],
+                        "id": o['user_id'],
+                        "fio": o['contact_fio'],
+                        "phone": f"+{int(o['contact_phone'])}" if o['contact_phone'] else "Неизвестно",
+                        "address": o['address']
+                    }
+                    for o in orders_raw
+                ],
+                "connections": []
             }
             return profile
 
@@ -178,9 +239,9 @@ class FraudInvestigator:
 
     async def investigate_single_case(self, user_id: str) -> str:
         """Проводит полный цикл анализа жалобы по ID пользователя."""
-        
+
         if self.complaints_df.empty:
-             return json.dumps({"error": "Complaints data is unavailable"}, ensure_ascii=False)
+            return json.dumps({"error": "Complaints data is unavailable"}, ensure_ascii=False)
 
         # 1. Поиск жалобы в уже загруженном датафрейме
         user_complaints = self.complaints_df[self.complaints_df['userId'] == user_id].sort_values(
@@ -229,7 +290,7 @@ async def main() -> None:
     )
 
     # Тестовый ID
-    target_id = "B_5400"
+    target_id = "B_6069"
 
     profile_dict = await investigator.fetch_full_user_profile(target_id)
 
