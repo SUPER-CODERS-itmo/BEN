@@ -16,6 +16,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import pandas as pd
 
 from backend.fraud_analysis import FraudInvestigator
+from fastapi.staticfiles import StaticFiles
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -76,10 +77,10 @@ def read_complaints_safe() -> pd.DataFrame:
     return pd.read_csv(COMPLAINTS_TSV, sep='\t')
 
 
-@app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    """Перенаправляет корневой запрос на документацию API (Swagger)."""
-    return RedirectResponse(url="/docs")
+# @app.get("/", include_in_schema=False)
+# def root() -> RedirectResponse:
+#    """Перенаправляет корневой запрос на документацию API (Swagger)."""
+#   return RedirectResponse(url="/docs")
 
 
 @app.get("/complaints", dependencies=[Depends(verify_token)])
@@ -300,3 +301,6 @@ async def get_frauds(
                 results.append(full_profile)
 
     return results
+
+
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
