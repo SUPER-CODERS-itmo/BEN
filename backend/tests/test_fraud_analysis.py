@@ -1,13 +1,11 @@
 import unittest
-from unittest.mock import patch, MagicMock
-import sqlite3
-import aiosqlite
+from unittest.mock import patch
 import pandas as pd
 import numpy as np
 import json
 import os
 
-from fraud_analysis import AmountExtractor, EcosystemDB, FraudInvestigator
+from backend.fraud_analysis import AmountExtractor, EcosystemDB, FraudInvestigator
 
 
 class TestAmountExtractor(unittest.TestCase):
