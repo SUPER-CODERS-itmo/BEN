@@ -26,8 +26,9 @@ app = FastAPI(title="BEN API", version="1.2.0")
 security = HTTPBearer()
 
 # Пути к данным
-DB_PATH = 'data/ecosystem_data.db'
-COMPLAINTS_TSV = 'data/bank_complaints.tsv'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, 'data', 'ecosystem_data.db')
+COMPLAINTS_TSV = os.path.join(BASE_DIR, 'data', 'bank_complaints.tsv')
 SECRET_TOKEN = "secret-token-123"
 
 
