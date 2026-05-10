@@ -123,7 +123,7 @@ class TestFraudInvestigator(unittest.IsolatedAsyncioTestCase):
                 'address': 'г. Сочи', 'account': 'ACC1', 'marketplace_id': '1',
                 'bank_id': 'B1', 'phone_mobile': '7999', 'mobile_id': 'M1'
             },
-            'complaints': [{'author_name': 'A', 'text': 'Жалоба'}],
+            'victims': [{'userId': 'V1', 'author_name': 'Алексей'}],
             'transfers': [{'event_date': '2023', 'value': 100, 'account_out': '1', 'account_in': '2'}],
             'calls': [],
             'orders': []

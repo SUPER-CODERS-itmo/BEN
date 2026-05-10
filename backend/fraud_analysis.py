@@ -125,16 +125,15 @@ class EcosystemDB:
 
         account = user['account']
 
-        # 2. Жалобы
-        complaints_query = """
-            SELECT DISTINCT c.text, c.event_date, v.fio AS author_name
-            FROM complaints c
-            JOIN bank_clients v ON c.victim_bank_id = v.userId
-            JOIN bank_transactions t ON t.account_out = v.account
-            WHERE t.account_in = ?
-        """
-        async with self.conn.execute(complaints_query, (account,)) as cursor:
-            complaints = await cursor.fetchall()
+        # 2. Потенциальные жертвы (кто переводил деньги этому аккаунту)
+        victims_query = """
+                    SELECT DISTINCT v.userId, v.fio AS author_name
+                    FROM bank_clients v
+                    JOIN bank_transactions t ON t.account_out = v.account
+                    WHERE t.account_in = ?
+                """
+        async with self.conn.execute(victims_query, (account,)) as cursor:
+            victims = await cursor.fetchall()
 
         # 3. Транзакции
         transfers_query = """
@@ -170,7 +169,7 @@ class EcosystemDB:
 
         return {
             "user": user,
-            "complaints": complaints,
+            "victims": victims,
             "transfers": transfers,
             "calls": calls,
             "orders": orders
@@ -272,7 +271,19 @@ class FraudInvestigator:
                 return None
 
             user = data['user']
-            is_fraud = len(data['complaints']) > 0
+
+            actual_complaints = []
+            if not self.complaints_df.empty:
+                for v in data['victims']:
+                    # Безопасно ищем жалобы по userId
+                    v_complaints = self.complaints_df[self.complaints_df['userId'].astype(str) == str(v['userId'])]
+                    for _, c_row in v_complaints.iterrows():
+                        actual_complaints.append({
+                            "author": v['author_name'],
+                            "text": c_row['text']
+                        })
+
+            is_fraud = len(actual_complaints) > 0
 
             phone_val = user['phone_bank']
             formatted_phone = f"+{int(phone_val)}" if phone_val else "Неизвестно"
@@ -288,10 +299,7 @@ class FraudInvestigator:
                 "bankId": user['bank_id'],
                 "threat": "_high" if is_fraud else "_low",
                 "tags": self._generate_tags(user, data['transfers']),
-                "complaints": [
-                    {"author": c['author_name'], "text": c['text']}
-                    for c in data['complaints']
-                ],
+                "complaints": actual_complaints,
                 "transfers": [
                     {
                         "date": t['event_date'],
@@ -380,7 +388,7 @@ async def main() -> None:
     )
 
     # Пример работы
-    target_id = "B_6069"
+    target_id = "B_9208"
     profile = await investigator.fetch_full_user_profile(target_id)
 
     if profile:
