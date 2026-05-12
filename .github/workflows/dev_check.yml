@@ -5,6 +5,7 @@ on:
     branches:
       - alice_back
       - sasha_back
+      - tg_bot
 
   pull_request:
       branches:
@@ -24,7 +25,7 @@ jobs:
 
       - name: Installing frameworks
         run: |
-          pip install pandas numpy faker
+          pip install pandas numpy faker aiogram httpx aiosqlite aiohttp-socks
       - name: Run local tests
         run: |
           python -m unittest discover
