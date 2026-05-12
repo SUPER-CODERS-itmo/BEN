@@ -27,6 +27,8 @@ jobs:
         run: |
           pip install pandas numpy faker aiogram httpx aiosqlite aiohttp-socks
       - name: Run local tests
+        env:
+          PYTHONPATH: .
         run: |
           python -m unittest discover
 
