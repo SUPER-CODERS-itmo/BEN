@@ -21,7 +21,7 @@ theme:
         name: Темная тема
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo # CSS это перекрасит в лайм
+      primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-4
@@ -44,14 +44,7 @@ plugins:
         python:
           paths:
             - .
-            - src_back
-            - src_alice
-            - src_sasha
-            - src_tg
-            - src_tests
-            - src_tests/tests
-            - src_bus_front
-            - src_ega_front
+            - src_project
           options:
             show_source: true
             show_root_heading: true

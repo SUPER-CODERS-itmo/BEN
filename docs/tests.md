@@ -1,6 +1,6 @@
 # 🧪 Тестирование
 
-Проект покрыт **Unit-тестами на pytest**. Тесты живут в ветке `tests`
+Проект покрыт **Unit-тестами на pytest**. Тесты живут в ветке `dev_sasha_test`
 и запускаются автоматически при деплое документации.
 
 ---
@@ -18,7 +18,7 @@
 
 ```bash
 # Клонируй ветку tests
-git checkout tests
+git checkout dev_sasha_test
 
 # Установи зависимости
 pip install pandas numpy faker pytest

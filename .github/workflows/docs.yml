@@ -16,48 +16,12 @@ jobs:
       - name: Checkout Main
         uses: actions/checkout@v4
 
-      # 2. Выкачиваем все ветки с кодом в разные папки
-      - name: Checkout Alice Back
+      # 2. Весь проект из dev_sasha_test
+      - name: Checkout Project
         uses: actions/checkout@v4
         with:
-          ref: alice_back
-          path: src_alice
-
-      - name: Checkout Sasha Back
-        uses: actions/checkout@v4
-        with:
-          ref: sasha_back
-          path: src_sasha
-
-      - name: Checkout TG bot
-        uses: actions/checkout@v4
-        with:
-          ref: tg_bot
-          path: src_tg
-
-      - name: Checkout Backend (General)
-        uses: actions/checkout@v4
-        with:
-          ref: back
-          path: src_back
-
-      - name: Checkout Tests
-        uses: actions/checkout@v4
-        with:
-          ref: tests
-          path: src_tests
-
-      - name: Checkout Business Front
-        uses: actions/checkout@v4
-        with:
-          ref: buisness_front
-          path: src_bus_front
-
-      - name: Checkout Ega Front
-        uses: actions/checkout@v4
-        with:
-          ref: ega_front
-          path: src_ega_front
+          ref: dev_sasha_test
+          path: src_project
 
       # 3. Настройка Python
       - name: Set up Python
@@ -75,15 +39,10 @@ jobs:
       # 5. Создаём __init__.py чтобы Python видел модули
       - name: Force Python Packages
         run: |
-          touch src_back/__init__.py
-          touch src_alice/__init__.py
-          touch src_sasha/__init__.py
-          touch src_tg/__init__.py
-          touch src_tests/__init__.py
-          touch src_tests/tests/__init__.py
+          touch src_project/__init__.py
 
       # 6. Сборка и деплой на GitHub Pages
       - name: Build and Deploy
         run: mkdocs gh-deploy --force
         env:
-          PYTHONPATH: ".:src_back:src_alice:src_sasha:src_tg:src_tests:src_tests/tests"
+          PYTHONPATH: ".:src_project"
