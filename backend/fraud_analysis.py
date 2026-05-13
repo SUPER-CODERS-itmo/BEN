@@ -72,7 +72,7 @@ class EcosystemDB:
             await self.conn.close()
 
     async def find_transaction(
-        self, victim_id: str, amount: int
+            self, victim_id: str, amount: int
     ) -> Optional[aiosqlite.Row]:
         """Ищет последнюю транзакцию по ID жертвы и сумме.
 
@@ -103,7 +103,7 @@ class EcosystemDB:
             return await cursor.fetchone()
 
     async def get_user_profile_data(
-        self, bank_id: str
+            self, bank_id: str
     ) -> Optional[Dict[str, Any]]:
         """Собирает комплексные данные о пользователе из разных таблиц.
 
@@ -200,7 +200,7 @@ class FraudInvestigator:
             return pd.DataFrame()
 
     def _generate_tags(
-        self, user_row: aiosqlite.Row, transfers: List[aiosqlite.Row]
+            self, user_row: aiosqlite.Row, transfers: List[aiosqlite.Row]
     ) -> List[str]:
         """Генерирует список тегов на основе бизнес-логики.
 
@@ -253,7 +253,7 @@ class FraudInvestigator:
         return tags
 
     async def fetch_full_user_profile(
-        self, bank_id: str
+            self, bank_id: str
     ) -> Optional[Dict[str, Any]]:
         """Собирает и форматирует профиль пользователя.
 
@@ -296,6 +296,7 @@ class FraudInvestigator:
                 "address": user['address'],
                 "bankAccount": user['account'],
                 "marketplaceId": user['marketplace_id'],
+                "mobileId": user['mobile_id'],
                 "bankId": user['bank_id'],
                 "threat": "_high" if is_fraud else "_low",
                 "tags": self._generate_tags(user, data['transfers']),
@@ -347,7 +348,7 @@ class FraudInvestigator:
         # Фильтруем жалобы пользователя
         user_complaints = self.complaints_df[
             self.complaints_df['userId'] == user_id
-        ].sort_values('event_date', ascending=False)
+            ].sort_values('event_date', ascending=False)
 
         if user_complaints.empty:
             return json.dumps({"error": f"No complaints for user {user_id}"})

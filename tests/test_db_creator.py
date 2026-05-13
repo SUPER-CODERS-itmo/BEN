@@ -4,7 +4,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 
-from db_creator import normalize_phone, DataPopulator, COMPLAINTS_TSV
+from backend.db_creator import normalize_phone, DataPopulator, COMPLAINTS_TSV
 
 
 class TestNormalizePhone(unittest.TestCase):

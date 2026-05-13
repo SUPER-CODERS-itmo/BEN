@@ -8,15 +8,18 @@ import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
+import sys
 
 import aiosqlite
 from fastapi import Depends, FastAPI, HTTPException, Query, Security
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import pandas as pd
+from pydantic import BaseModel
 
-# Предполагается, что код из предыдущего ответа находится в fraud_analysis.py
-from fraud_analysis import FraudInvestigator
+from backend.fraud_analysis import FraudInvestigator
+from fastapi.staticfiles import StaticFiles
+from backend.auth import authenticate_user, create_session, validate_token
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -26,28 +29,27 @@ app = FastAPI(title="BEN API", version="1.2.0")
 security = HTTPBearer()
 
 # Пути к данным
-DB_PATH = 'data/ecosystem_data.db'
-COMPLAINTS_TSV = 'data/bank_complaints.tsv'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+USERS_DB = os.path.join(BASE_DIR, 'backend/data', 'users.db')
+DB_PATH = os.path.join(BASE_DIR, 'backend/data', 'ecosystem_data.db')
+COMPLAINTS_TSV = os.path.join(BASE_DIR, 'backend/data', 'bank_complaints.tsv')
 SECRET_TOKEN = "secret-token-123"
 
 
-def verify_token(
-    credentials: HTTPAuthorizationCredentials = Security(security)
-) -> str:
-    """Проверяет токен авторизации.
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-    Args:
-        credentials: Учетные данные из заголовка Authorization.
 
-    Returns:
-        Идентификатор оператора при успешной проверке.
-
-    Raises:
-        HTTPException: Если токен невалиден (403).
-    """
-    if credentials.credentials != SECRET_TOKEN:
-        raise HTTPException(status_code=403, detail="Invalid token")
-    return "operator_01"
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> dict:
+    token = credentials.credentials
+    user_data = validate_token(token)  # Проверка через ваш модуль auth.py
+    if token == 'secret-token-123':
+        return user_data
+    if not user_data:
+        raise HTTPException(status_code=403, detail="Сессия истекла или неверный токен")
+    else:
+        return user_data
 
 
 def audit_log(user_id: str, action: str) -> None:
@@ -76,18 +78,28 @@ def read_complaints_safe() -> pd.DataFrame:
     return pd.read_csv(COMPLAINTS_TSV, sep='\t')
 
 
-@app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    """Перенаправляет корневой запрос на документацию API (Swagger)."""
-    return RedirectResponse(url="/docs")
+# @app.get("/", include_in_schema=False)
+# def root() -> RedirectResponse:
+#    """Перенаправляет корневой запрос на документацию API (Swagger)."""
+#   return RedirectResponse(url="/docs")
+
+@app.post("/login")
+async def login(data: LoginRequest):
+    success, token, user_data = authenticate_user(USERS_DB, data.username, data.password)
+
+    if success and token:
+        create_session(token, user_data)  # Сохраняем сессию в памяти (как в вашем auth.py)
+        return {"token": token, "user": user_data}
+
+    raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
 
 @app.get("/complaints", dependencies=[Depends(verify_token)])
 async def get_complaints(
-    start_date: Optional[str] = Query(None, description="Format: YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="Format: YYYY-MM-DD"),
-    skip: int = 0,
-    limit: int = 20
+        start_date: Optional[str] = Query(None, description="Format: YYYY-MM-DD"),
+        end_date: Optional[str] = Query(None, description="Format: YYYY-MM-DD"),
+        skip: int = 0,
+        limit: int = 20
 ) -> List[Dict[str, Any]]:
     """Возвращает список жалоб с фильтрацией по дате.
 
@@ -134,8 +146,8 @@ async def get_complaint_text(complaint_id: str) -> Dict[str, str]:
 
 @app.post("/investigate/{complaint_id}")
 async def investigate(
-    complaint_id: str,
-    user_id: str = Depends(verify_token)
+        complaint_id: str,
+        user_id: str = Depends(verify_token)
 ) -> Dict[str, Any]:
     """Запускает процесс автоматизированного расследования по жалобе.
 
@@ -162,8 +174,8 @@ async def investigate(
 
 @app.get("/cases/{fraud_id}/calls", dependencies=[Depends(verify_token)])
 async def get_calls(
-    fraud_id: str,
-    victim_id: str
+        fraud_id: str,
+        victim_id: str
 ) -> List[Dict[str, Any]]:
     """Получает историю звонков между предполагаемым мошенником и жертвой.
 
@@ -260,10 +272,10 @@ async def get_full_profile_endpoint(bank_id: str) -> Dict[str, Any]:
 
 @app.get("/frauds", dependencies=[Depends(verify_token)])
 async def get_frauds(
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    skip: int = 0,
-    limit: int = 10
+        start_date: Optional[str] = Query(None),
+        end_date: Optional[str] = Query(None),
+        skip: int = 0,
+        limit: int = 10
 ) -> List[Dict[str, Any]]:
     """Возвращает список полных профилей мошенников, выявленных по жалобам.
 
@@ -300,3 +312,7 @@ async def get_frauds(
                 results.append(full_profile)
 
     return results
+
+
+if 'pytest' not in sys.modules:
+    app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
