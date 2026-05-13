@@ -1,0 +1,48 @@
+name: Deploy BEN Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Основная ветка с конфигами и md-файлами
+      - name: Checkout Main
+        uses: actions/checkout@v4
+
+      # 2. Весь проект из dev_sasha_test
+      - name: Checkout Project
+        uses: actions/checkout@v4
+        with:
+          ref: dev_sasha_test
+          path: src_project
+
+      # 3. Настройка Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # 4. Установка зависимостей
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs-material mkdocstrings[python]
+          pip install pandas numpy faker pytest aiogram httpx aiosqlite aiohttp-socks
+
+      # 5. Создаём __init__.py чтобы Python видел модули
+      - name: Force Python Packages
+        run: |
+          touch src_project/__init__.py
+
+      # 6. Сборка и деплой на GitHub Pages
+      - name: Build and Deploy
+        run: mkdocs gh-deploy --force
+        env:
+          PYTHONPATH: ".:src_project:src_project/backend:src_project/tests"
