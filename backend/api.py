@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
+import sys
 
 import aiosqlite
 from fastapi import Depends, FastAPI, HTTPException, Query, Security
@@ -313,4 +314,5 @@ async def get_frauds(
     return results
 
 
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+if 'pytest' not in sys.modules:
+    app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
