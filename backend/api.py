@@ -314,5 +314,5 @@ async def get_frauds(
     return results
 
 
-if 'pytest' not in sys.modules:
+if __name__ == "__main__":
     app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
