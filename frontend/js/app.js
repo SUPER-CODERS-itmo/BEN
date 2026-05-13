@@ -38,6 +38,7 @@ __webpack_require__.r(__webpack_exports__);
 document.addEventListener('DOMContentLoaded', () => {
     const profileBtn = document.querySelector('#profileBtn');
     const menu = document.querySelector('.profile-menu');
+    const exitBtn = document.querySelector('._exit');
 
     if (profileBtn && menu) {
         profileBtn.addEventListener('click', function(e) {
@@ -45,16 +46,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
             e.preventDefault();
             e.stopPropagation();
-            
+
             menu.classList.toggle('_active');
             console.log('Меню переключено');
         });
-
 
         document.addEventListener('click', (e) => {
             if (!profileBtn.contains(e.target)) {
                 menu.classList.remove('_active');
             }
+        });
+    }
+
+    if (exitBtn) {
+        exitBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Отменяем стандартный переход по href="#"
+
+            // 1. Очищаем сохраненные данные сессии
+            localStorage.removeItem('token');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userId');
+
+            // 2. Перекидываем на страницу логина
+            window.location.href = '/index.html';
         });
     }
 });
