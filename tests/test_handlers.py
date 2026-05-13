@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Импорты хэндлеров и состояний
-from bot.handlers.auth import cmd_start, on_password, cmd_logout, LoginFSM
-from bot.handlers.admin import show_users, AddUserFSM
-from bot.handlers.cases import show_complaints, InvestigateFSM
+from handlers.auth import cmd_start, on_password, cmd_logout, LoginFSM
+from handlers.admin import show_users, AddUserFSM
+from handlers.cases import show_complaints, InvestigateFSM
 
 class TestBotHandlers(unittest.IsolatedAsyncioTestCase):
     """Юнит-тесты для хэндлеров бота на базе unittest."""

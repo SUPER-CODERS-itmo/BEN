@@ -101,7 +101,6 @@ python db_creator.py
 ### Терминал 1 — BEN API
 
 ```powershell
-cd C:\Users\...\BankGuard-working-title-
 python -m uvicorn api:app --port 8000
 ```
 
@@ -118,7 +117,7 @@ INFO: Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ### Терминал 2 — Telegram бот
 
 ```powershell
-cd C:\Users\...\BankGuard-working-title-\bot
+cd bot
 
 # Обязательно — без этого запросы к API идут через VPN и не работают
 set NO_PROXY=localhost,127.0.0.1

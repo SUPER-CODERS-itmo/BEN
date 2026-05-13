@@ -6,30 +6,29 @@ on:
       - alice_back
       - sasha_back
       - tg_bot
-
   pull_request:
-      branches:
-        - back
+    branches:
+      - back
 
 jobs:
   my-super-test-job:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4  
+        uses: actions/checkout@v4
 
-      - name: Set up python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Installing frameworks
+      - name: Install dependencies
         run: |
-          pip install pandas numpy faker aiogram httpx aiosqlite aiohttp-socks
-      - name: Run local tests
-        env:
-          PYTHONPATH: ./:./bot
+          pip install pandas numpy faker aiogram httpx aiosqlite aiohttp-socks pytest
+
+      - name: Run tests
         run: |
           python -m unittest discover -s tests -t .
-
-
+        env:
+          PYTHONPATH: "./:./bot"
+          BOT_TOKEN: "test-token-stub"
