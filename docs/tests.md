@@ -17,7 +17,7 @@
 ## ▶️ Запуск тестов
 
 ```bash
-# Клонируй ветку tests
+# Клонируй ветку dev_sasha_test
 git checkout dev_sasha_test
 
 # Установи зависимости

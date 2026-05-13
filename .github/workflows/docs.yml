@@ -45,4 +45,4 @@ jobs:
       - name: Build and Deploy
         run: mkdocs gh-deploy --force
         env:
-          PYTHONPATH: ".:src_project:src_project/backend:src_project/backend/tests"
+          PYTHONPATH: ".:src_project:src_project/backend:src_project/tests"

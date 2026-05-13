@@ -46,7 +46,7 @@ plugins:
             - .
             - src_project
             - src_project/backend
-            - src_project/backend/tests
+            - src_project/tests
           options:
             show_source: true
             show_root_heading: true
