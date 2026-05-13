@@ -113,8 +113,8 @@ class TestFraudInvestigator(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Wildberries', tags)
         self.assertIn('МТС', tags)
 
-    @patch('fraud_analysis.EcosystemDB.connect')
-    @patch('fraud_analysis.EcosystemDB.get_user_profile_data')
+    @patch('backend.fraud_analysis.EcosystemDB.connect')
+    @patch('backend.fraud_analysis.EcosystemDB.get_user_profile_data')
     async def test_fetch_full_user_profile(self, mock_get_data, mock_connect):
         # Мокаем возврат данных из БД
         mock_get_data.return_value = {
