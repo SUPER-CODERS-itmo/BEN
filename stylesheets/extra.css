@@ -1,0 +1,96 @@
+/* ====================================================== */
+/* 1. ШАПКА И ТАБЫ (ЛАЙМ + ЧЕРНЫЙ ТЕКСТ) — ЖЕСТКО        */
+/* ====================================================== */
+
+/* Красим фон шапки и полоски табов под ней */
+.md-header,
+.md-tabs {
+  background-color: #C3FC6D !important;
+}
+
+/* Принудительно черный текст и иконки в верхней части */
+.md-header__title,
+.md-header__button,
+.md-tabs__link,
+.md-source__repository,
+.md-source__icon,
+.md-search__icon,
+.md-search__input,
+.md-search__input::placeholder {
+  color: #000000 !important;
+}
+
+/* Активный таб в шапке (подчеркивание и жирность) */
+.md-tabs__link--active {
+  color: #000000 !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+.md-tabs__link--active::after {
+  background-color: #000000 !important;
+}
+
+/* ====================================================== */
+/* 2. СВЕТЛАЯ ТЕМА (DEFAULT) — ФИКС НЕВИДИМОГО ТЕКСТА     */
+/* ====================================================== */
+
+[data-md-color-scheme="default"] {
+  /* Форсим черные цвета для всех текстовых переменных */
+  --md-default-fg-color: #000000 !important;
+  --md-default-fg-color--light: #000000 !important;
+  --md-default-fg-color--lighter: #000000 !important;
+  --md-default-fg-color--lightest: #000000 !important;
+
+  /* Цвет акцента (ссылок) в светлой теме пусть будет зеленым */
+  --md-accent-fg-color: #2e7d32 !important;
+}
+
+/* Силовое перекрашивание левого и правого меню в светлой теме */
+[data-md-color-scheme="default"] .md-nav__link,
+[data-md-color-scheme="default"] .md-nav__title,
+[data-md-color-scheme="default"] .md-sidebar {
+  color: #000000 !important;
+}
+
+/* Исправляем активный (синий) пункт меню в светлой теме */
+[data-md-color-scheme="default"] .md-nav__item--active > .md-nav__link {
+  color: #000000 !important;
+  font-weight: bold !important;
+}
+
+/* ====================================================== */
+/* 3. ТЕМНАЯ ТЕМА (SLATE) — ТЕКСТ БЕЛЫЙ                   */
+/* ====================================================== */
+
+[data-md-color-scheme="slate"] {
+  /* Форсим белые цвета для всех текстовых переменных */
+  --md-default-fg-color: #ffffff !important;
+  --md-default-fg-color--light: #ffffff !important;
+  --md-default-fg-color--lighter: #ffffff !important;
+  --md-default-fg-color--lightest: #ffffff !important;
+
+  /* Цвет акцента (ссылок) в темной теме — твой лайм */
+  --md-accent-fg-color: #C3FC6D !important;
+}
+
+/* Белый текст для меню и контента в темной теме */
+[data-md-color-scheme="slate"] .md-nav__link,
+[data-md-color-scheme="slate"] .md-nav__title,
+[data-md-color-scheme="slate"] .md-typeset,
+[data-md-color-scheme="slate"] .md-sidebar {
+  color: #ffffff !important;
+}
+
+/* ====================================================== */
+/* 4. ОБЩИЕ ПРАВИЛА ДЛЯ КОНТЕНТА                          */
+/* ====================================================== */
+
+/* Заголовки страниц */
+.md-typeset h1, .md-typeset h2, .md-typeset h3 {
+  color: inherit !important; /* Берет цвет из настроек схемы выше */
+}
+
+/* Ссылки в тексте */
+.md-typeset a {
+  text-decoration: underline !important;
+}
