@@ -51,6 +51,11 @@ main.py  ──►  Dispatcher (aiogram)  ──►  handlers: auth / cases / ad
 | `on_password` | `LoginFSM.password` | Проверяет пароль, привязывает TG ID |
 | `cmd_logout` | `🚪 Выйти` | Отвязывает TG ID, отключает уведомления |
 
+::: handlers.auth
+    options:
+      show_root_heading: true
+      show_source: true
+
 ---
 
 ### `cases.py` — Жалобы и расследования
@@ -73,6 +78,11 @@ main.py  ──►  Dispatcher (aiogram)  ──►  handlers: auth / cases / ad
 | `cb_calls` | `calls:{fraud_id}:{victim_id}` | История звонков |
 | `cb_delivery` | `delivery:{fraud_id}` | Доставки маркетплейса |
 
+::: handlers.cases
+    options:
+      show_root_heading: true
+      show_source: true
+
 ---
 
 ### `admin.py` — Администрирование
@@ -85,6 +95,11 @@ main.py  ──►  Dispatcher (aiogram)  ──►  handlers: auth / cases / ad
 | `add_user` | Создать нового пользователя (FSM: логин → пароль → роль) |
 | `delete_user` | Удалить пользователя по логину |
 | `set_tg_id` | Привязать Telegram ID вручную |
+
+::: handlers.admin
+    options:
+      show_root_heading: true
+      show_source: true
 
 ---
 
@@ -106,6 +121,11 @@ main.py  ──►  Dispatcher (aiogram)  ──►  handlers: auth / cases / ad
 | `get_frauds()` | `GET /frauds` | Список профилей мошенников |
 | `get_full_profile()` | `GET /full-profile/{id}` | Полный профиль пользователя |
 
+::: services.api_client
+    options:
+      show_root_heading: true
+      show_source: true
+
 ---
 
 ### `db.py` — База пользователей
@@ -123,6 +143,11 @@ main.py  ──►  Dispatcher (aiogram)  ──►  handlers: auth / cases / ad
 | `add_user()` | Создать нового пользователя |
 | `delete_user()` | Удалить пользователя |
 
+::: services.db
+    options:
+      show_root_heading: true
+      show_source: true
+
 ---
 
 ### `poller.py` — Поллер новых жалоб
@@ -137,6 +162,11 @@ async with asyncio.TaskGroup() as tg:
     tg.create_task(poller.start())   # ← вот этот
 ```
 
+::: services.poller
+    options:
+      show_root_heading: true
+      show_source: true
+
 ---
 
 ### `formatter.py` — Форматирование сообщений
@@ -150,3 +180,8 @@ async with asyncio.TaskGroup() as tg:
 | `fmt_fraud_card()` | Детальная карточка мошенника |
 | `fmt_user_list()` | Список пользователей для админа |
 | `_escape_md()` | Экранирование спецсимволов Markdown |
+
+::: services.formatter
+    options:
+      show_root_heading: true
+      show_source: true

@@ -34,6 +34,9 @@ jobs:
         run: |
           touch backend/__init__.py
           touch tests/__init__.py
+          touch bot/__init__.py
+          touch bot/handlers/__init__.py
+          touch bot/services/__init__.py
 
       # 5. Сборка и деплой на GitHub Pages
       - name: Build and Deploy
